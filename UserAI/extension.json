@@ -1,0 +1,218 @@
+{
+  "name": "UserAI",
+  "version": "0.1.0-beta.4.18",
+  "author": [
+    "Klaus Feldmann / AufEinWort (Softwaredesign)",
+    "ChatGPT/Sophos (Programmierung)"
+  ],
+  "descriptionmsg": "userai-desc",
+  "license-name": "GPL-2.0-or-later",
+  "type": "semantic",
+  "requires": {
+    "MediaWiki": ">= 1.47.0-wmf.24",
+    "extensions": {
+      "OAuth": "*"
+    }
+  },
+  "AutoloadNamespaces": {
+    "AEWI\\UserAI\\": "src/"
+  },
+  "ResourceFileModulePaths": {
+    "localBasePath": "",
+    "remoteExtPath": "UserAI"
+  },
+  "ResourceModules": {
+    "ext.userai.orderReview.styles": {
+      "styles": [ "resources/orderReview.css" ]
+    },
+    "ext.userai.notice.styles": {
+      "styles": [
+        "resources/notice.css"
+      ]
+    },
+    "ext.userai.notice.dismiss": {
+      "scripts": [
+        "resources/dismiss.js"
+      ],
+      "messages": [
+        "userai-dismiss"
+      ]
+    }
+  },
+  "MessagesDirs": {
+    "UserAI": [
+      "i18n"
+    ]
+  },
+  "APIModules": {
+    "userai": "AEWI\\UserAI\\ApiUserAI"
+  },
+  "config": {
+    "UserAIEnabled": {
+      "value": false
+    },
+    "UserAIAssistants": {
+      "value": [],
+      "merge_strategy": "array_plus"
+    },
+    "UserAISourcePolicy": {
+      "value": null
+    },
+    "UserAIRequireConnectionApproval": {
+      "value": true
+    }
+  },
+  "manifest_version": 2,
+  "Hooks": {
+    "ExtensionTypes": "AEWI\\UserAI\\VersionGroups::onExtensionTypes",
+    "LoadExtensionSchemaUpdates": "AEWI\\UserAI\\ConnectionHooks::onLoadExtensionSchemaUpdates",
+    "ApiCheckCanExecute": "AEWI\\UserAI\\ConnectionHooks::onApiCheckCanExecute",
+    "RestCheckCanExecute": "AEWI\\UserAI\\ConnectionHooks::onRestCheckCanExecute",
+    "BeforePageDisplay": "AEWI\\UserAI\\ConnectionHooks::onBeforePageDisplay",
+    "SiteNoticeAfter": "AEWI\\UserAI\\ConnectionHooks::onSiteNoticeAfter",
+    "RestAfterExecute": "AEWI\\UserAI\\ConnectionHooks::onRestAfterExecute"
+  },
+  "RestRoutes": [
+    {
+      "path": "/uai/v0/page/{pageId}/mainSubject",
+      "method": [
+        "POST"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "create-main-subject"
+      ]
+    },
+    {
+      "path": "/uai/v0/page/{pageId}/subjects",
+      "method": [
+        "POST"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "create-subject"
+      ]
+    },
+    {
+      "path": "/uai/v0/subject/{subjectId}",
+      "method": [
+        "PUT"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "update-subject"
+      ]
+    },
+    {
+      "path": "/uai/v0/subject/{subjectId}",
+      "method": [
+        "DELETE"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "delete-subject"
+      ]
+    },
+    {
+      "path": "/uai/v0/page/{pageId}/mainSubject",
+      "method": [
+        "PUT"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "set-main-subject"
+      ]
+    },
+    {
+      "path": "/uai/v0/subject-ids",
+      "method": [
+        "POST"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "mint-subject-ids"
+      ]
+    },
+    {
+      "path": "/uai/v0/subject/validate",
+      "method": [
+        "POST"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "validate-subject"
+      ]
+    },
+    {
+      "path": "/uai/v0/subject/{subjectId}/validate",
+      "method": [
+        "POST"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "validate-subject-update"
+      ]
+    },
+    {
+      "path": "/uai/v0/query/sparql",
+      "method": [
+        "POST"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "sparql-query"
+      ]
+    },
+    {
+      "path": "/uai/v0/query/cypher",
+      "method": [
+        "POST"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "cypher-query"
+      ]
+    },
+    {
+      "path": "/uai/v0/subject/{subjectId}",
+      "method": [
+        "GET"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "subject-rest"
+      ]
+    },
+    {
+      "path": "/uai/v0/subject-labels",
+      "method": [
+        "GET"
+      ],
+      "factory": "AEWI\\UserAI\\RestOperation::newHandler",
+      "args": [
+        "search-subjects"
+      ]
+    }
+  ],
+  "namemsg": "userai-name",
+  "url": "https://www.mediawiki.org/wiki/Extension:User_AI",
+  "SpecialPages": {
+    "UserAIOrderReview": "AEWI\\UserAI\\SpecialUserAIOrderReview",
+    "UserAIConnection": "AEWI\\UserAI\\SpecialUserAIConnection"
+  },
+  "RateLimits": {
+    "userai-connection": {
+      "user": [
+        5,
+        120
+      ],
+      "newbie": [
+        5,
+        120
+      ]
+    }
+  },
+  "ExtensionMessagesFiles": {
+    "UserAIAlias": "i18n/UserAI.alias.php"
+  }
+}

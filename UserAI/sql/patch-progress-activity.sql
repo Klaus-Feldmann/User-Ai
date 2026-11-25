@@ -1,0 +1,4 @@
+ALTER TABLE /*_*/uai_progress
+  ADD COLUMN uaip_connection VARBINARY(32) DEFAULT NULL,
+  ADD COLUMN uaip_read_notice VARBINARY(240) DEFAULT NULL,
+  ADD COLUMN uaip_write_notice VARBINARY(240) DEFAULT NULL;

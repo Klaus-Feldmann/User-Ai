@@ -1,0 +1,11 @@
+{
+  "name": "@aewi/uai-mcp-server",
+  "version": "0.1.0-dev.34",
+  "private": true,
+  "description": "Standalone stdio MCP server for the User AI catalog",
+  "license": "GPL-2.0-or-later",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": { "start": "node src/start.mjs", "test": "node --test" },
+  "dependencies": { "@modelcontextprotocol/server": "2.4.0" }
+}

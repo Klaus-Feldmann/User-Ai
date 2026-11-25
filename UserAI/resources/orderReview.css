@@ -1,0 +1,36 @@
+.userai-review-text {
+	max-block-size: clamp( 6rem, 45vh, 32rem );
+	overflow-y: scroll;
+	scrollbar-gutter: stable;
+	box-sizing: border-box;
+	padding: 0.75rem;
+	border: 1px solid var( --border-color-base, #a2a9b1 );
+	background: var( --background-color-neutral-subtle, transparent );
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.userai-review-form {
+	margin-block-start: 1rem;
+}
+
+.userai-review-form label {
+	display: block;
+}
+
+.userai-review-form textarea {
+	box-sizing: border-box;
+	width: 100%;
+}
+
+.userai-review-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	margin-block-start: 0.75rem;
+}
+
+.userai-review-actions button {
+	padding: 0.45em 0.75em;
+}

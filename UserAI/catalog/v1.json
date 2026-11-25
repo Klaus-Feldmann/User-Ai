@@ -1,0 +1,1486 @@
+{
+  "version": 1,
+  "inputDialect": "https://json-schema.org/draft/2020-12/schema",
+  "actionModule": "userai",
+  "authentication": "assigned-mediawiki-account",
+  "profile": {
+    "templateOperation": "profile-template",
+    "titleSuffix": "/profil",
+    "provision": "mediawiki-createonly"
+  },
+  "tools": [
+    {
+      "name": "next-order-number",
+      "description": "Nächste Auftragsnummer vergeben.",
+      "annotations": {
+        "readOnlyHint": false
+      },
+      "requiresSws": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "next-order-number",
+          "parameters": {}
+        }
+      ]
+    },
+    {
+      "name": "save-progress",
+      "description": "Arbeitsstand im privaten Banner speichern.",
+      "annotations": {
+        "readOnlyHint": false
+      },
+      "requiresSws": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "reporttoken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task",
+          "status",
+          "summary"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "save-progress",
+          "parameters": {
+            "task": "task",
+            "status": "status",
+            "summary": "summary",
+            "reporttoken": "reporttoken"
+          }
+        }
+      ]
+    },
+    {
+      "name": "clear-reviewed-report",
+      "description": "Den vom Betreuer geprüften Abschlussbericht schließen.",
+      "annotations": {
+        "readOnlyHint": false
+      },
+      "requiresSws": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string"
+          },
+          "reporttoken": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task",
+          "reporttoken"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "clear-reviewed-report",
+          "parameters": {
+            "task": "task",
+            "reporttoken": "reporttoken",
+            "summary": "summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get-agent-context",
+      "description": "Read this authenticated assistant context and wiki profile.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "requiresSws": false,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "context"
+        }
+      ]
+    },
+    {
+      "name": "get-skill-topic",
+      "description": "Read the authenticated, wiki-managed User AI help topic.",
+      "annotations": {
+        "readOnlyHint": true
+      },
+      "requiresSws": false,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": [
+              "overview",
+              "sws",
+              "query",
+              "editing",
+              "authentication",
+              "backends"
+            ]
+          }
+        },
+        "required": [
+          "topic"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "help",
+          "parameters": {
+            "topic": "topic"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sws-get-subject",
+      "description": "Fetches one SWS Subject by ID — its label, display name, schema, the wiki page holding it, and statements with typed values. Enabled only when the wiki has SWS installed. Richer than a flattened Cypher node: it preserves multi-part values and per-statement types. `select` values are option IDs — decode them with sws-get-schema. A Dependent Subject has no label and carries hostSubject, the Subject it belongs to, and is named after its Schema and that Host Subject (\"Birth of Pablo Picasso\"). Get an ID from sws-search-subjects or a Cypher query. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Get SWS subject",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "latest": {
+            "description": "Read the current editable revision, including an unpublished revision visible to this user. Use before updates.",
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Persistent Subject ID (E-number, existing legacy s-ID, or sourceKey:localId). Use sws-search-subjects to resolve one from a label."
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "subject-rest",
+          "method": "GET",
+          "path": "/uai/v0/subject/{subjectId}",
+          "csrf": false,
+          "when": {
+            "argument": "latest",
+            "equals": true
+          },
+          "pathArguments": {
+            "subjectId": "id"
+          },
+          "queryValues": {
+            "latest": "1",
+            "expand": "page"
+          }
+        },
+        {
+          "transport": "action",
+          "operation": "subject",
+          "parameters": {
+            "id": "id"
+          },
+          "response": "json-data"
+        }
+      ]
+    },
+    {
+      "name": "sws-get-page-subjects",
+      "description": "Lists the SWS Subjects attached to a wiki page — each with full structured data — and identifies the page's Main Subject. Enabled only when the wiki has SWS installed. This is the bridge from a wiki page (which you may already have from get-page) into its knowledge-graph data: one call returns every subject's statements, so you don't need to resolve subject IDs first. Dependent Subjects are listed with the hostSubject they belong to. Accepts a page title or a numeric page ID. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Get SWS page subjects",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "description": "Wiki page title. Provide this OR pageId, not both.",
+            "type": "string",
+            "minLength": 1
+          },
+          "pageId": {
+            "description": "Numeric MediaWiki page ID. Provide this OR title, not both.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "title"
+            ]
+          },
+          {
+            "required": [
+              "pageId"
+            ]
+          }
+        ]
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "page-subjects",
+          "prepare": [
+            "resolve-page-id"
+          ],
+          "parameters": {
+            "pageid": "pageId"
+          },
+          "response": "json-data"
+        }
+      ]
+    },
+    {
+      "name": "sws-list-schemas",
+      "description": "Lists the Schemas (entity types, e.g. Person, Company) defined in the wiki's SWS catalogue, each with its description and property count; subjectsAreDependent is present, as true, only on a Schema whose Subjects are Dependent Subjects. Enabled only when the wiki has SWS installed. Start here to discover what types exist, then use sws-get-schema for one type's properties, or sws-query-entities to filter stored fields. A configured graph backend is not required for schema discovery. Paginate with continueFrom. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "List SWS schemas",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "continueFrom": {
+            "description": "Opaque cursor from a previous response; omit on first call.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "schemas",
+          "parameters": {
+            "cursor": "continueFrom"
+          },
+          "response": "json-data"
+        }
+      ]
+    },
+    {
+      "name": "sws-get-schema",
+      "description": "Returns one SWS Schema's property definitions: each property's name, type (text/number/boolean/url/date/dateTime/select/relation/monolingualText), and type-specific attributes. Enabled only when the wiki has SWS installed. A `relation` property's name is its graph edge type, and `targetSchemas` lists the Schemas its targets follow — this is the relationship vocabulary for sws-cypher-query. `select` properties carry `options`, the list of { id, label } needed to decode select values returned by queries. A constraint (`required`, `minimum`, `options`, …) is a bare value, or an object carrying its severity: { value, severity }, or { severity } for a boolean constraint that is true; it only warns unless its severity is `error` and the wiki enforces validation. `subjectsAreDependent: true` marks a Schema whose Subjects are Dependent Subjects: unlabelled, never a page's Main Subject, each reached through one relation from its Host Subject on the same page. Use sws-list-schemas to discover schema names. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Get SWS schema",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Schema name. Use sws-list-schemas to discover names."
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "schema",
+          "parameters": {
+            "name": "name"
+          },
+          "response": "json-data"
+        }
+      ]
+    },
+    {
+      "name": "sws-query-entities",
+      "description": "Finds SWS entities by own entity description and stored schema fields. Use descriptionContains for application or purpose in the entity header. Find exact category field keys and select option IDs in sws-get-schema. Inspects one bounded page of schema members. Follow nextCursor even on an empty page. The UAI path returns wiki page URLs and localized descriptions. On earlier installations the stored-field filters remain available.",
+      "annotations": {
+        "title": "Query SWS entity fields",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "descriptionContains": {
+            "description": "Case-insensitive phrase in an own entity description (any language). Requires User AI Alpha.6.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Schema name discovered with sws-list-schemas."
+          },
+          "filters": {
+            "default": [],
+            "description": "AND-combined filters on stored field values.",
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Exact field key from sws-get-schema; not a display label."
+                },
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "equals",
+                    "contains"
+                  ],
+                  "description": "Exact primitive comparison or case-insensitive text containment."
+                },
+                "value": {
+                  "description": "Value to match; select fields use option IDs, not labels.",
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                }
+              },
+              "required": [
+                "field",
+                "operator",
+                "value"
+              ]
+            }
+          },
+          "fields": {
+            "default": [],
+            "description": "Field keys to return; omitted keys return only entity/page identifiers.",
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "limit": {
+            "default": 10,
+            "description": "Maximum schema members inspected in this call, including non-matches.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25
+          },
+          "continueFrom": {
+            "description": "Opaque nextCursor from the previous call with the same schema and filters.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "schema"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "query-entities",
+          "jsonParameter": "entityquery",
+          "parameters": {
+            "schema": "schema",
+            "filters": "filters",
+            "fields": "fields",
+            "limit": "limit",
+            "cursor": "continueFrom",
+            "descriptionContains": "descriptionContains"
+          },
+          "defaults": {
+            "filters": [],
+            "fields": [],
+            "limit": 10,
+            "cursor": "",
+            "descriptionContains": ""
+          },
+          "response": "json-data"
+        }
+      ]
+    },
+    {
+      "name": "sws-get-query-capabilities",
+      "description": "Read the SWS SPARQL and Cypher configuration, without running a graph query.",
+      "annotations": {
+        "title": "Get SWS query capabilities",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "action",
+          "operation": "backend-capabilities"
+        }
+      ]
+    },
+    {
+      "name": "sws-search-subjects",
+      "description": "Finds SWS Subjects whose name starts with the given text, returning each match's persistent Subject ID, its name as `label`, and the page title of the wiki page holding it. Enabled only when the wiki has SWS installed. A Subject's name is its label, or for a Main Subject without one, its page title; Dependent Subjects and other Subjects without a label are not found. Subject IDs are not human-readable, so use this to resolve a name to an ID for sws-get-subject or a parameterized sws-cypher-query. Returns at most 50 matches. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Search SWS subjects",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "schema": {
+            "description": "Limits matches to Subjects of this Schema, named exactly, with matching case. Omit to search every Schema. Use sws-list-schemas to discover names.",
+            "type": "string",
+            "minLength": 1
+          },
+          "search": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Name prefix to match, case-insensitively."
+          }
+        },
+        "required": [
+          "search"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "search-subjects",
+          "method": "GET",
+          "path": "/uai/v0/subject-labels",
+          "csrf": false,
+          "query": {
+            "search": "search",
+            "schema": "schema"
+          },
+          "queryValues": {
+            "limit": "50"
+          }
+        }
+      ]
+    },
+    {
+      "name": "sws-create-subject",
+      "description": "Creates a new SWS Subject on an existing wiki page and returns its ID, the violations of its Schema it was saved with, and the Subject as saved. Enabled only when the wiki has SWS installed. Set isMain to make it the page's Main Subject (a page has at most one); otherwise it joins the page's other Subjects. Requires the edit right. A statement whose value is empty is dropped. A write that breaks a rule for Dependent Subjects is refused; other violations are warnings unless the wiki enforces validation, which refuses a write that introduces an error-severity one. A Dependent Subject, of a Schema with subjectsAreDependent in sws-get-schema, is created with the Subject that points at it: its ID comes from sws-mint-subject-ids, a relation targets it ({ target: \"<id>\" }), and the Dependent Subject goes in dependentSubjects. Field annotations use fieldNotes; omission preserves existing notes on update. Pre-validate statement values with sws-validate-subject. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Create SWS subject",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "identityLanguage": {
+            "description": "Language code of the own default identity, e.g. de.",
+            "type": "string",
+            "minLength": 1
+          },
+          "labels": {
+            "description": "Own labels keyed by language code. Omit to preserve existing labels on update.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "descriptions": {
+            "description": "Own descriptions keyed by language code. Omit to preserve existing descriptions on update.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "id": {
+            "description": "Unused Subject ID from sws-mint-subject-ids. Omit to let SWS allocate it.",
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "description": "Wiki page title to attach the Subject to. Provide this OR pageId.",
+            "type": "string",
+            "minLength": 1
+          },
+          "pageId": {
+            "description": "Numeric MediaWiki page ID. Provide this OR title.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "isMain": {
+            "description": "When true, create the page's Main Subject (at most one per page) instead of one of its other Subjects. Defaults to false.",
+            "type": "boolean"
+          },
+          "label": {
+            "description": "Display label for the new Subject. Omit, or pass an empty string, for a Subject without one: a Main Subject is then shown under its page title, any other Subject under its Schema name.",
+            "type": "string"
+          },
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Name of an existing Schema (entity type) the Subject instantiates. Discover names with sws-list-schemas."
+          },
+          "statements": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "propertyType": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The property's type. The key is propertyType, NOT the `type` key read tools return."
+                },
+                "value": {
+                  "description": "Value shaped by propertyType: text/url/date/dateTime → array of strings (date \"2020-12-31\", dateTime \"2020-12-31T14:30:00Z\", with Z or an offset); select → array of option IDs (resolve labels via sws-get-schema); number → a number; boolean → a boolean; relation → array of { target: \"<subjectId>\" }; monolingualText → array of { text, language }."
+                }
+              },
+              "required": [
+                "propertyType",
+                "value"
+              ]
+            },
+            "description": "Map of property name → { propertyType, value }. Validate first with sws-validate-subject."
+          },
+          "fieldNotes": {
+            "description": "Author notes keyed by exact Schema field name, separate from statements. Omission preserves existing notes on update; a supplied map replaces all notes, and {} clears them. Plain text or Wikitext follows the Schema setting. Requires SWS 0.2.02 or later.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "dependentSubjects": {
+            "description": "Dependent Subjects to create in the same revision, each the target of a relation in statements or in another item of this list.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "An unused Subject ID from sws-mint-subject-ids, creating the Dependent Subject, or the ID of a Dependent Subject this Subject reaches, replacing it."
+                },
+                "identityLanguage": {
+                  "description": "Language code of the own default identity, e.g. de.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "labels": {
+                  "description": "Own labels keyed by language code. Omit to preserve existing labels on update.",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "descriptions": {
+                  "description": "Own descriptions keyed by language code. Omit to preserve existing descriptions on update.",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "fieldKeyVersion": {
+                  "description": "Field-key version returned by reading this Dependent Subject; pass it back on replacement.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Name of a Schema whose Subjects are dependent."
+                },
+                "fieldNotes": {
+                  "description": "Author notes keyed by exact Schema field name. Omit to preserve existing notes; {} clears them. Requires SWS 0.2.02 or later.",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "statements": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "propertyType": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The property's type. The key is propertyType, NOT the `type` key read tools return."
+                      },
+                      "value": {
+                        "description": "Value shaped by propertyType: text/url/date/dateTime → array of strings (date \"2020-12-31\", dateTime \"2020-12-31T14:30:00Z\", with Z or an offset); select → array of option IDs (resolve labels via sws-get-schema); number → a number; boolean → a boolean; relation → array of { target: \"<subjectId>\" }; monolingualText → array of { text, language }."
+                      }
+                    },
+                    "required": [
+                      "propertyType",
+                      "value"
+                    ]
+                  },
+                  "description": "The Dependent Subject's statement map, shaped as for the Subject itself."
+                }
+              },
+              "required": [
+                "id",
+                "schema",
+                "statements"
+              ]
+            }
+          },
+          "comment": {
+            "description": "Optional edit summary.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema",
+          "statements"
+        ],
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "title"
+            ]
+          },
+          {
+            "required": [
+              "pageId"
+            ]
+          }
+        ]
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "create-main-subject",
+          "method": "POST",
+          "path": "/uai/v0/page/{pageId}/mainSubject",
+          "csrf": true,
+          "when": {
+            "argument": "isMain",
+            "equals": true
+          },
+          "pathArguments": {
+            "pageId": "pageId"
+          },
+          "body": [
+            "id",
+            "schema",
+            "label",
+            "identityLanguage",
+            "labels",
+            "descriptions",
+            "statements",
+            "fieldNotes",
+            "dependentSubjects",
+            "comment"
+          ],
+          "prepare": [
+            "resolve-page-id",
+            "initialize-identity"
+          ]
+        },
+        {
+          "transport": "rest",
+          "operation": "create-subject",
+          "method": "POST",
+          "path": "/uai/v0/page/{pageId}/subjects",
+          "csrf": true,
+          "pathArguments": {
+            "pageId": "pageId"
+          },
+          "body": [
+            "id",
+            "schema",
+            "label",
+            "identityLanguage",
+            "labels",
+            "descriptions",
+            "statements",
+            "fieldNotes",
+            "dependentSubjects",
+            "comment"
+          ],
+          "prepare": [
+            "resolve-page-id",
+            "initialize-identity"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sws-update-subject",
+      "description": "Submit one Subject update at a time. After each update, read back that Subject and report the confirmed checkpoint before submitting the next write. If the app stops returning a result, report the outstanding Subject ID and verify its current revision before any retry. Replaces a SWS Subject's label and statements — a FULL replace: an omitted or empty label is cleared, property names absent from `statements` are deleted, and {} clears all statements. Returns the violations of its Schema the Subject was saved with, and the Subject as saved. Enabled only when the wiki has SWS installed. The Subject's id, schema and page are immutable. Requires the edit right. Read the current state with sws-get-subject (latest=true) first and pass back fieldKeyVersion if returned. Dependent Subjects are written through dependentSubjects as with sws-create-subject, and passing the ID of one this Subject reaches replaces it; dropping the last relation to a Dependent Subject deletes it. A write that breaks a rule for Dependent Subjects is refused; other violations are warnings unless the wiki enforces validation, which refuses a write that introduces an error-severity one. Field annotations use fieldNotes; omission preserves existing notes on update. Pre-validate statement values with sws-validate-subject. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Update SWS subject",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "baseRevisionId": {
+            "description": "Latest hosting page revision read with get-page. With UAI Beta.1 a changed revision is rejected as a conflict.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "identityLanguage": {
+            "description": "Language code of the own default identity, e.g. de.",
+            "type": "string",
+            "minLength": 1
+          },
+          "labels": {
+            "description": "Own labels keyed by language code. Omit to preserve existing labels on update.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "descriptions": {
+            "description": "Own descriptions keyed by language code. Omit to preserve existing descriptions on update.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "fieldKeyVersion": {
+            "description": "Field-key version returned by sws-get-subject. Pass it back when replacing statements after a field rename.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Subject ID to replace (starts with s…). Resolve one with sws-search-subjects."
+          },
+          "label": {
+            "description": "New display label. Omit it, or pass an empty string, to clear the label, as a Dependent Subject (one with hostSubject) requires.",
+            "type": "string"
+          },
+          "statements": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "propertyType": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The property's type. The key is propertyType, NOT the `type` key read tools return."
+                },
+                "value": {
+                  "description": "Value shaped by propertyType: text/url/date/dateTime → array of strings (date \"2020-12-31\", dateTime \"2020-12-31T14:30:00Z\", with Z or an offset); select → array of option IDs (resolve labels via sws-get-schema); number → a number; boolean → a boolean; relation → array of { target: \"<subjectId>\" }; monolingualText → array of { text, language }."
+                }
+              },
+              "required": [
+                "propertyType",
+                "value"
+              ]
+            },
+            "description": "Full replacement statement map (property name → { propertyType, value }). Property names absent from this map are deleted; pass {} to clear all statements."
+          },
+          "fieldNotes": {
+            "description": "Author notes keyed by exact Schema field name, separate from statements. Omission preserves existing notes on update; a supplied map replaces all notes, and {} clears them. Plain text or Wikitext follows the Schema setting. Requires SWS 0.2.02 or later.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "minLength": 1
+            },
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "dependentSubjects": {
+            "description": "Dependent Subjects to create or replace in the same revision, each the target of a relation in statements or in another item of this list.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "An unused Subject ID from sws-mint-subject-ids, creating the Dependent Subject, or the ID of a Dependent Subject this Subject reaches, replacing it."
+                },
+                "identityLanguage": {
+                  "description": "Language code of the own default identity, e.g. de.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "labels": {
+                  "description": "Own labels keyed by language code. Omit to preserve existing labels on update.",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "descriptions": {
+                  "description": "Own descriptions keyed by language code. Omit to preserve existing descriptions on update.",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "fieldKeyVersion": {
+                  "description": "Field-key version returned by reading this Dependent Subject; pass it back on replacement.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Name of a Schema whose Subjects are dependent."
+                },
+                "fieldNotes": {
+                  "description": "Author notes keyed by exact Schema field name. Omit to preserve existing notes; {} clears them. Requires SWS 0.2.02 or later.",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "statements": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "propertyType": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "The property's type. The key is propertyType, NOT the `type` key read tools return."
+                      },
+                      "value": {
+                        "description": "Value shaped by propertyType: text/url/date/dateTime → array of strings (date \"2020-12-31\", dateTime \"2020-12-31T14:30:00Z\", with Z or an offset); select → array of option IDs (resolve labels via sws-get-schema); number → a number; boolean → a boolean; relation → array of { target: \"<subjectId>\" }; monolingualText → array of { text, language }."
+                      }
+                    },
+                    "required": [
+                      "propertyType",
+                      "value"
+                    ]
+                  },
+                  "description": "The Dependent Subject's statement map, shaped as for the Subject itself."
+                }
+              },
+              "required": [
+                "id",
+                "schema",
+                "statements"
+              ]
+            }
+          },
+          "comment": {
+            "description": "Optional edit summary.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "statements"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "update-subject",
+          "method": "PUT",
+          "path": "/uai/v0/subject/{subjectId}",
+          "csrf": true,
+          "pathArguments": {
+            "subjectId": "id"
+          },
+          "body": [
+            "baseRevisionId",
+            "fieldKeyVersion",
+            "label",
+            "identityLanguage",
+            "labels",
+            "descriptions",
+            "statements",
+            "fieldNotes",
+            "dependentSubjects",
+            "comment"
+          ],
+          "prepare": [
+            "merge-current-identity"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sws-delete-subject",
+      "description": "Deletes one SWS Subject by ID from its page, together with its Dependent Subjects. Enabled only when the wiki has SWS installed. Relations that other Subjects hold to a standalone Subject stay, pointing at a Subject that no longer exists; deleting a Dependent Subject removes the relations to it, editing its Host Subject. Requires the edit right. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Delete SWS subject",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Subject ID to delete (starts with s…). Resolve one with sws-search-subjects."
+          },
+          "comment": {
+            "description": "Optional edit summary.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "delete-subject",
+          "method": "DELETE",
+          "path": "/uai/v0/subject/{subjectId}",
+          "csrf": true,
+          "pathArguments": {
+            "subjectId": "id"
+          },
+          "body": [
+            "comment"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sws-set-main-subject",
+      "description": "Sets which existing Subject on a wiki page is its Main Subject, or clears it. Enabled only when the wiki has SWS installed. Pass subjectId to promote one of the page's other Subjects, or null to clear the Main Subject. A Dependent Subject cannot be a Main Subject. This differs from sws-create-subject with isMain, which creates a NEW main Subject. Requires the edit right. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Set SWS main subject",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "description": "Wiki page title. Provide this OR pageId.",
+            "type": "string",
+            "minLength": 1
+          },
+          "pageId": {
+            "description": "Numeric MediaWiki page ID. Provide this OR title.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "subjectId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Persistent Subject ID on this page to promote to Main Subject, or null to clear the Main Subject."
+          },
+          "comment": {
+            "description": "Optional edit summary.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subjectId"
+        ],
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "title"
+            ]
+          },
+          {
+            "required": [
+              "pageId"
+            ]
+          }
+        ]
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "set-main-subject",
+          "method": "PUT",
+          "path": "/uai/v0/page/{pageId}/mainSubject",
+          "csrf": true,
+          "prepare": [
+            "resolve-page-id"
+          ],
+          "pathArguments": {
+            "pageId": "pageId"
+          },
+          "body": [
+            "subjectId",
+            "comment"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sws-mint-subject-ids",
+      "description": "Mints unused SWS Subject IDs and returns them as subjectIds, reserving them for subsequent writes. Requires edit access. Enabled only when the wiki has SWS installed. A minted ID lets a relation target a Subject in the same write that creates it: the ID of each Dependent Subject passed in the dependentSubjects of sws-create-subject or sws-update-subject. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Mint SWS subject IDs",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "description": "Number of Subject IDs to mint."
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "mint-subject-ids",
+          "method": "POST",
+          "path": "/uai/v0/subject-ids",
+          "csrf": true,
+          "body": [
+            "count"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sws-validate-subject",
+      "description": "Dry-runs validation of a proposed SWS Subject's statements against its Schema and returns any violations WITHOUT writing. Enabled only when the wiki has SWS installed. Provide id to validate an update to an existing Subject (its schema is used), or omit id and provide schema to validate a new Subject. Use before sws-create-subject / sws-update-subject to catch type mismatches, missing required properties, and the propertyType-vs-type footgun. Returns { violations: [] } when valid; each violation carries a stable code, the propertyName it concerns, and a severity of error or warning. The rules for Dependent Subjects are checked only when a write runs. Pre-1.0: the SWS API may change without notice.",
+      "annotations": {
+        "title": "Validate SWS subject",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Subject ID to validate an UPDATE against (its schema is used). Omit to validate a NEW subject and pass schema instead.",
+            "type": "string",
+            "minLength": 1
+          },
+          "schema": {
+            "description": "Schema name to validate a NEW subject against. Required when id is omitted; ignored when id is given.",
+            "type": "string",
+            "minLength": 1
+          },
+          "statements": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "propertyType": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The property's type. The key is propertyType, NOT the `type` key read tools return."
+                },
+                "value": {
+                  "description": "Value shaped by propertyType: text/url/date/dateTime → array of strings (date \"2020-12-31\", dateTime \"2020-12-31T14:30:00Z\", with Z or an offset); select → array of option IDs (resolve labels via sws-get-schema); number → a number; boolean → a boolean; relation → array of { target: \"<subjectId>\" }; monolingualText → array of { text, language }."
+                }
+              },
+              "required": [
+                "propertyType",
+                "value"
+              ]
+            },
+            "description": "Proposed statement map (property name → { propertyType, value })."
+          }
+        },
+        "required": [
+          "statements"
+        ],
+        "additionalProperties": false,
+        "anyOf": [
+          {
+            "required": [
+              "id"
+            ]
+          },
+          {
+            "required": [
+              "schema"
+            ]
+          }
+        ]
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "validate-subject-update",
+          "method": "POST",
+          "path": "/uai/v0/subject/{subjectId}/validate",
+          "csrf": false,
+          "when": {
+            "argument": "id",
+            "present": true
+          },
+          "pathArguments": {
+            "subjectId": "id"
+          },
+          "body": [
+            "statements"
+          ]
+        },
+        {
+          "transport": "rest",
+          "operation": "validate-subject",
+          "method": "POST",
+          "path": "/uai/v0/subject/validate",
+          "csrf": false,
+          "require": [
+            "schema"
+          ],
+          "body": [
+            "schema",
+            "statements"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "sws-sparql-query",
+      "description": "Runs read-only SPARQL SELECT or ASK through SWS against its first configured SPARQL store. Enabled with SemanticWikiSchema and hidden after a missing store is detected. sws-get-query-capabilities distinguishes configuration from connectivity and freshness. Returns a W3C result document inside document, preserving binding metadata. This is distinct from wikibase-query: it targets SWS RDF, not a Wikibase query service. Oversized results are refused rather than silently truncated; narrow with LIMIT and filters. For queries over schema fields, determine their actual RDF projection first; ordinary full-text/category searches need no graph/schema preflight. Unknown backend configuration is advisory, not a call prohibition.",
+      "annotations": {
+        "title": "Query SWS SPARQL store",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Read-only SPARQL SELECT or ASK query for the configured SWS store, with explicit limits for SELECT. Determine actual schema/field RDF mappings first."
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "sparql-query",
+          "method": "POST",
+          "path": "/uai/v0/query/sparql",
+          "csrf": false,
+          "body": [
+            "query"
+          ],
+          "backend": "sparql"
+        }
+      ]
+    },
+    {
+      "name": "sws-cypher-query",
+      "description": "Runs a read-only Cypher query against the wiki's SWS knowledge graph (Neo4j) and returns rows. Enabled only when the wiki has SWS installed; the query endpoint exists only where SWS has a Neo4j backend.\n\nDiscover the data model first — the graph CANNOT be introspected from Cypher (CALL db.labels(), db.schema.* and all procedure calls are rejected as not-read-only). Use sws-list-schemas for the entity types, then sws-get-schema for a type's properties and relations.\n\nGraph model:\n- Subjects are nodes labelled `:Subject` plus a per-schema label, e.g. (s:Subject:Person). Subject node properties are the schema's properties plus `id` and `name`. `name` is the Subject's label, or a Main Subject's page title when it has no label, and is absent otherwise.\n- Pages are (:Page) nodes linked by (:Page)-[:HasSubject {isMain, isDependent}]->(:Subject). Subject-to-subject relations are edges typed by the relation property's name (see sws-get-schema): (c:Subject:Company)-[:`Main product`]->(p:Subject:Product).\n- A node labelled only `:Subject` is a stub: the target of a relation whose Subject was deleted or not yet created.\n- Statement values are lists, except `number` and `boolean` values, which are single: match with 'Germany' IN s.Country, not s.Country = 'Germany'. `select` parts are opaque option IDs (e.g. o1abc…), not labels — decode them with sws-get-schema. `date` and `dateTime` parts are Neo4j dates and datetimes; `monolingualText` parts are `text@language` strings.\n\nGotchas:\n- Whole nodes come back as { id, labels, properties }, where id is Neo4j's internal node ID and the Subject ID is properties.id; projecting the properties needed keeps rows small.\n- Plain list values (labels(n), collect(...)) come back as 1-indexed JSON objects ({\"1\":…,\"2\":…}), not arrays.\n- Read-only only; write clauses are rejected.\n\nLimits: ~5,000 rows / 30s by default (50,000 / 300s with the apihighlimits right). When `truncated` is true, narrow with WHERE or add LIMIT/SKIP. Pre-1.0: the SWS API may change without notice.\n\nExample:\n  cypher: MATCH (s:Subject:Person) WHERE s.`Birth year` > $minYear RETURN s.name AS name, s.`Birth year` AS year ORDER BY year\n  parameters: { \"minYear\": 2000 }",
+      "annotations": {
+        "title": "Run SWS Cypher query",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "cypher": {
+            "type": "string",
+            "minLength": 1,
+            "description": "A single read-only Cypher statement. Backtick-escape names with spaces, and names that are Cypher keywords such as Show: s.`Birth year`, -[:`Main product`]->."
+          },
+          "parameters": {
+            "description": "Parameter map referenced as $name in the query. Prefer this over string concatenation.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "cypher"
+        ],
+        "additionalProperties": false
+      },
+      "calls": [
+        {
+          "transport": "rest",
+          "operation": "cypher-query",
+          "method": "POST",
+          "path": "/uai/v0/query/cypher",
+          "csrf": false,
+          "body": [
+            "cypher",
+            "parameters"
+          ],
+          "backend": "cypher"
+        }
+      ]
+    },
+    {
+      "name": "sws-get-processing-status",
+      "description": "Reads existing SWS processing evidence for one wiki page or local E-ID: published revision, recent processing observation, dependency freshness, stored source attempt/success metadata and observed SMW writes. Requires action=swsprocessingstatus. Unlike swsbase-get-data-view it does not resolve live sources or return values. It never parses, saves, refreshes or queues work. Missing or expired evidence is unknown, not a processing failure. Queue execution and RDF delivery remain explicitly unverified. A successful SMW write observation is not a store read-back. Oversized reports are refused; narrow by entity and/or field.",
+      "annotations": {
+        "title": "Get SWS processing status",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "requiresSws": true,
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "title": {
+            "description": "Wiki page title. Provide exactly one of title, pageId or entity.",
+            "type": "string",
+            "minLength": 1
+          },
+          "pageId": {
+            "description": "Numeric wiki page ID, instead of title or entity.",
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "entity": {
+            "description": "Local SWS E-ID, instead of title or pageId.",
+            "type": "string",
+            "pattern": "^E[1-9][0-9]*$"
+          },
+          "language": {
+            "description": "Stored source language. Omit for the wiki API context language.",
+            "type": "string",
+            "pattern": "^[a-z]{2,12}(?:-[a-z0-9]{1,12})*$"
+          },
+          "field": {
+            "description": "Restrict stored source metadata to this exact field key.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "title"
+            ]
+          },
+          {
+            "required": [
+              "pageId"
+            ]
+          },
+          {
+            "required": [
+              "entity"
+            ]
+          }
+        ]
+      },
+      "calls": [
+        {
+          "transport": "wiki-action",
+          "action": "swsprocessingstatus",
+          "parameters": {
+            "title": "title",
+            "pageid": "pageId",
+            "entity": "entity",
+            "language": "language",
+            "field": "field"
+          },
+          "responseKey": "swsprocessingstatus"
+        }
+      ]
+    }
+  ]
+}
