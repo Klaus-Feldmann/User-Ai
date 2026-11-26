@@ -6,3 +6,5 @@ $wgUserAIEnabled = true;
 $wgUserAIAssistants = [ 100 => 101 ];
 // Optional wiki-specific guidance for the assistant.
 $wgUserAISourcePolicy = null;
+// Optional lifetime of a newly activated connection in whole hours. Default: 2.
+// $wgUserAIConnectionLifetimeHours = 2;

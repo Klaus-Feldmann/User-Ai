@@ -6,6 +6,7 @@ import { test } from 'node:test';
 test('Eine offene Betreuerseite übernimmt den ersten Auftrag, Statuswechsel und geleerten Bericht', async () => {
 	const js = await readFile(new URL('../resources/dismiss.js', import.meta.url), 'utf8');
 	let tick, nextHtml = 'Wartet auf Freigabe';
+	const delays = [];
 	const banner = {
 		isConnected: true, dataset: { owner: '1', uaiRefresh: '/banner' },
 		replaceChildren(...children) { this.children = children; },
@@ -13,7 +14,7 @@ test('Eine offene Betreuerseite übernimmt den ersten Auftrag, Statuswechsel und
 	runInNewContext(js, {
 		document: { hidden: false, querySelector: () => banner, querySelectorAll: () => [] },
 		mw: { hook: () => ({ add: callback => callback() }) },
-		setTimeout: callback => { tick = callback; },
+		setTimeout: (callback, delay) => { tick = callback; delays.push(delay); },
 		fetch: async () => ({ ok: true, text: async () => nextHtml }),
 		DOMParser: class {
 			parseFromString(html) {
@@ -28,4 +29,5 @@ test('Eine offene Betreuerseite übernimmt den ersten Auftrag, Statuswechsel und
 		await tick();
 		assert.deepEqual(banner.children, state ? [state] : []);
 	}
+	assert.deepEqual(delays, Array(6).fill(20000));
 });

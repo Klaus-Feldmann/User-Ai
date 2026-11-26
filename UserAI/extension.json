@@ -1,6 +1,6 @@
 {
   "name": "UserAI",
-  "version": "0.1.0-beta.4.19",
+  "version": "0.1.1",
   "author": [
     "Klaus Feldmann / AufEinWort (Softwaredesign)",
     "ChatGPT/Sophos (Programmierung)"
@@ -60,6 +60,9 @@
     },
     "UserAIRequireConnectionApproval": {
       "value": true
+    },
+    "UserAIConnectionLifetimeHours": {
+      "value": 2
     }
   },
   "manifest_version": 2,

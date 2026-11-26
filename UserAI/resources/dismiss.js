@@ -29,6 +29,8 @@ function bindButtons() {
 	} );
 }
 
+const bannerRefreshIntervalMs = 20000;
+
 function watchBanner() {
 	const banner = document.querySelector( '[data-uai-refresh]' );
 	if ( !banner || banner.dataset.watching ) {
@@ -59,10 +61,10 @@ function watchBanner() {
 		} catch ( error ) {
 			// Retry transient network errors on the next refresh.
 		} finally {
-			setTimeout( refresh, 5000 );
+			setTimeout( refresh, bannerRefreshIntervalMs );
 		}
 	}
-	setTimeout( refresh, 5000 );
+	setTimeout( refresh, bannerRefreshIntervalMs );
 }
 mw.hook( 'wikipage.content' ).add( function () {
 	bindButtons();

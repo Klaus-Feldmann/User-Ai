@@ -36,3 +36,23 @@ foreach ( $cases as $label => $ok ) {
 	}
 }
 echo "6 connection proof checks passed.\n";
+
+$manifest = json_decode( file_get_contents( __DIR__ . '/../extension.json' ), true, 512, JSON_THROW_ON_ERROR );
+$now = 1795700000;
+$lifetimes = [
+	[ $manifest['config']['UserAIConnectionLifetimeHours']['value'], 7200 ],
+	[ 1, 3600 ],
+	[ 3, 10800 ],
+	[ 24, 86400 ],
+	[ 0, 7200 ],
+	[ -1, 7200 ],
+	[ 2.5, 7200 ],
+	[ '3', 7200 ],
+	[ PHP_INT_MAX, 7200 ],
+];
+foreach ( $lifetimes as [ $hours, $seconds ] ) {
+	if ( ConnectionStore::activeExpiration( $now, $hours ) !== $now + $seconds ) {
+		throw new RuntimeException( 'Connection lifetime case failed: ' . var_export( $hours, true ) );
+	}
+}
+echo "9 connection lifetime checks passed.\n";

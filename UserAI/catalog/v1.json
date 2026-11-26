@@ -1472,7 +1472,7 @@
           "transport": "wiki-action",
           "action": "swsprocessingstatus",
           "parameters": {
-            "title": "title",
+            "page": "title",
             "pageid": "pageId",
             "entity": "entity",
             "language": "language",

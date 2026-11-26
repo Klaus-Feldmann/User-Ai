@@ -274,7 +274,10 @@ final class ApiUserAI extends ApiBase {
 		}
 		$state = (int)$connection->uaic_state;
 		if ( $state === ConnectionStore::APPROVED ) {
-			$expires = time() + ConnectionStore::SESSION_SECONDS;
+			$expires = ConnectionStore::activeExpiration(
+				time(),
+				$config->get( 'UserAIConnectionLifetimeHours' )
+			);
 			if ( $store->change( $connection, ConnectionStore::ACTIVE, $expires ) ) {
 				return [ 'version' => self::VERSION, 'status' => 'active', 'expiresAt' => $expires ];
 			}

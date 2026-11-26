@@ -13,7 +13,7 @@ import { BrowserLoginRequiredError } from './oauth.mjs';
 import { wikiTools, wikiPageWriteTools } from './wiki-tools.mjs';
 import { mcpDefinitions } from './client.mjs';
 
-export const serverInfo = { name: 'uai-mcp-server', version: '0.1.0-dev.35' };
+export const serverInfo = { name: 'uai-mcp-server', version: '0.1.1' };
 const serverInstance = randomUUID();
 const runtime = { serverVersion: serverInfo.version, serverInstance };
 const runtimeLabel = 'UAI-Server ' + serverInfo.version + ' · Instanz ' + serverInstance;

@@ -1,4 +1,4 @@
-# UAI MCP Server 0.1.0-dev.35
+# UAI MCP Server 0.1.1
 
 Eigenständiger MCP-Server über stdio für User AI ab 0.1.0-beta.4.
 Softwaredesign Klaus Feldmann / AufEinWort, Programmierung ChatGPT / Sophos.

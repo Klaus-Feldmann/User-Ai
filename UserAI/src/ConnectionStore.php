@@ -12,7 +12,14 @@ final class ConnectionStore {
 	public const ACTIVE = 2;
 	public const CLOSED = 3;
 	public const REQUEST_SECONDS = 120;
-	public const SESSION_SECONDS = 900;
+	private const DEFAULT_SESSION_HOURS = 2;
+
+	public static function activeExpiration( int $now, mixed $hours ): int {
+		if ( !is_int( $hours ) || $hours < 1 || $hours > intdiv( PHP_INT_MAX - $now, 3600 ) ) {
+			$hours = self::DEFAULT_SESSION_HOURS;
+		}
+		return $now + $hours * 3600;
+	}
 
 	public function __construct( private readonly IDatabase $db ) {
 	}

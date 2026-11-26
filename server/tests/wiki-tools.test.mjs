@@ -23,19 +23,59 @@ test('reads template documentation and returns the canonical link and revision',
 	assert.equal(result.revision.revisionId, 42);
 });
 
-test('passes search, category and revision pagination to MediaWiki', async () => {
+test('replays the complete category continuation across three result pages', async () => {
+	const category = 'Kategorie:Test';
+	const blocks = [
+		{ gcmcontinue: 'page|424144454e|83478', continue: 'gcmcontinue||' },
+		{ gcmcontinue: 'page|4245524c494e|83479', continue: 'gcmcontinue||' },
+	];
+	const { run } = fixture(request => {
+		if (!request.generator) return { query: { pages: [{ ns: 14 }] } };
+		if (request.continue === '-||') return { batchcomplete: true };
+		const offset = request.gcmcontinue ? blocks.findIndex(block => block.gcmcontinue === request.gcmcontinue) + 1 : 0;
+		if (offset > 0) assert.equal(request.continue, blocks[offset - 1].continue);
+		return {
+			query: { pages: [{ ...sample, pageid: offset + 1 }] },
+			...(blocks[offset] ? { continue: blocks[offset] } : {}),
+		};
+	});
+	const args = { category, namespaces: [10], limit: 1 };
+	const first = await run('get-category-members', args);
+	const second = await run('get-category-members', { ...args, continueFrom: first.nextCursor });
+	const third = await run('get-category-members', { ...args, continueFrom: second.nextCursor });
+	assert.deepEqual([first, second, third].map(result => result.members[0]?.pageId), [1, 2, 3]);
+	assert.equal(third.nextCursor, null);
+});
+
+test('round-trips numeric search offsets and revision cursors without changing the general continuation', async () => {
 	const { run, requests } = fixture((request) => ({
-		query: { pages: [request.titles === 'Kategorie:Test' ? { ns: 14 } : sample] },
-		continue: { gsroffset: 20, gcmcontinue: 'category-next', rvcontinue: 'rev-next' },
+		query: { pages: [sample] },
+		continue: request.generator === 'search' ?
+			{ gsroffset: 20, continue: 'gsroffset||' } :
+			{ rvcontinue: '20261126105100|43', continue: '-||' },
 	}));
-	assert.equal((await run('search-page', { query: 'Zitat', continueFrom: '10' })).nextCursor, '20');
-	assert.equal(requests[0].gsroffset, '10');
-	assert.equal((await run('get-category-members', { category: 'Kategorie:Test', continueFrom: 'previous' })).nextCursor, 'category-next');
-	assert.equal(requests[2].gcmtitle, 'Kategorie:Test');
-	assert.equal(requests[2].gcmcontinue, 'previous');
-	assert.equal((await run('get-page-history', { title: sample.title })).nextCursor, 'rev-next');
-	assert.equal((await run('get-revision', { revisionId: 42 })).revision.source, 'Wikitext');
+	const searchArgs = { query: 'Zitat', limit: 20 };
+	const firstSearch = await run('search-page', searchArgs);
+	await run('search-page', { ...searchArgs, continueFrom: firstSearch.nextCursor });
+	assert.equal(requests[1].gsroffset, 20);
+	assert.equal(requests[1].continue, 'gsroffset||');
+	const historyArgs = { title: sample.title };
+	const firstHistory = await run('get-page-history', historyArgs);
+	await run('get-page-history', { ...historyArgs, continueFrom: firstHistory.nextCursor });
+	assert.equal(requests[3].rvcontinue, '20261126105100|43');
+	assert.equal(requests[3].continue, '-||');
+	assert.equal((await run('get-revision', { revisionId: 42 })).revision.revisionId, 42);
 	assert.equal(requests.at(-1).revids, 42);
+});
+
+test('accepts earlier module cursors and rejects a cursor that changes the fixed request', async () => {
+	const { run, requests } = fixture(() => ({ query: { pages: [sample] } }));
+	await run('search-page', { query: 'Zitat', continueFrom: '10' });
+	assert.equal(requests[0].gsroffset, '10');
+	assert.equal(requests[0].continue, 'gsroffset||');
+	const forged = 'mw:' + Buffer.from(JSON.stringify({ gcmcontinue: 'page|00|1', continue: 'gcmcontinue||', action: 'edit' })).toString('base64url');
+	await assert.rejects(run('get-category-members', { category: 'Kategorie:Test', continueFrom: forged }), { status: 400 });
+	assert.equal(requests.length, 1);
 });
 
 test('requires a current revision and retains MediaWiki account and edit checks', async () => {
@@ -105,7 +145,7 @@ test('compares the two requested revisions using MediaWiki diff HTML', async () 
 test('checks redirects including fragments and missing targets while paging incoming links', async () => {
 	const { run, requests } = fixture((args) => args.generator ? {
 		query: { pages: [{ pageid: 6, title: 'Eingehend', fullurl: 'https://test.wiki/wiki/Eingehend' }] },
-		continue: { gblcontinue: 'next' },
+		continue: { gblcontinue: 'next', continue: 'gblcontinue||' },
 	} : {
 		query: { redirects: [{ from: 'Test', to: 'Fehlt', tofragment: 'Abschnitt' }],
 			pages: [{ title: 'Fehlt', missing: true }] },
@@ -113,10 +153,14 @@ test('checks redirects including fragments and missing targets while paging inco
 	const result = await run('check-redirects', { title: 'Test', namespaces: [10], continueFrom: 'previous' });
 	assert.deepEqual(result.outgoing, { status: 'missing-target', hops: [{ from: 'Test', to: 'Fehlt', fragment: 'Abschnitt' }] });
 	assert.equal(result.incoming[0].url, 'https://test.wiki/wiki/Eingehend');
-	assert.equal(result.nextCursor, 'next');
+	await run('check-redirects', { title: 'Test', namespaces: [10], continueFrom: result.nextCursor });
+	const resumed = requests.filter(({ generator }) => generator).at(-1);
+	assert.equal(resumed.gblcontinue, 'next');
+	assert.equal(resumed.continue, 'gblcontinue||');
 	const inbound = requests.find(({ generator }) => generator);
 	assert.equal(inbound.gbltitle, 'Test');
 	assert.equal(inbound.gblfilterredir, 'redirects');
 	assert.equal(inbound.gblcontinue, 'previous');
+	assert.equal(inbound.continue, 'gblcontinue||');
 	assert.equal(inbound.gblnamespace, '10');
 });

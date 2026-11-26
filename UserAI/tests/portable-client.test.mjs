@@ -23,6 +23,7 @@ function fixture(allowWrites = false) {
 			if (args.meta === 'siteinfo') return { query: { general: { lang: 'de' } } };
 			if (args.meta === 'userinfo') return { query: { userinfo: { id: 7, name: 'Sophos' } } };
 			if (args.meta === 'tokens') return { query: { tokens: { csrftoken: 'fixture' } } };
+			if (args.action === 'swsprocessingstatus') return { swsprocessingstatus: { status: 'prepared' } };
 			if (args.action === 'edit') return { edit: { result: 'Success' } };
 			throw new Error('Unexpected action');
 		},
@@ -61,6 +62,19 @@ test('selects create-main and forwards only REST body arguments', async () => {
 		method: 'POST', path: '/uai/v0/page/42/mainSubject', query: {}, csrf: true,
 		body: { schema: 'S11', label: 'Test', identityLanguage: 'de', labels: { de: 'Test' }, descriptions: {}, statements: {} },
 	});
+});
+
+test('maps each processing status target to the corresponding SWS Action API parameter', async () => {
+	const { client, actions } = fixture();
+	for (const [input, expected] of [
+		[{ title: 'Vorlage:Autoarchiv/Doku' }, { page: 'Vorlage:Autoarchiv/Doku' }],
+		[{ pageId: 42 }, { pageid: 42 }],
+		[{ entity: 'E293' }, { entity: 'E293' }],
+	]) {
+		assert.deepEqual(await client.invoke(catalog, 'sws-get-processing-status', { ...input, language: 'de', field: 'FK3' }),
+			{ status: 'prepared' });
+		assert.deepEqual(actions.at(-1), { action: 'swsprocessingstatus', formatversion: 2, ...expected, language: 'de', field: 'FK3' });
+	}
 });
 
 test('keeps omitted description and alternate label on replacement and uses the UAI latest route', async () => {

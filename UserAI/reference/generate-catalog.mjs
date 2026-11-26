@@ -64,7 +64,7 @@ const tools = [
 	['sws-sparql-query', true, [rest('sparql-query', { body: ['query'], backend: 'sparql' })]],
 	['sws-cypher-query', true, [rest('cypher-query', { body: ['cypher', 'parameters'], backend: 'cypher' })]],
 	['sws-get-processing-status', true, [{ transport: 'wiki-action', action: 'swsprocessingstatus',
-		parameters: { title: 'title', pageid: 'pageId', entity: 'entity', language: 'language', field: 'field' }, responseKey: 'swsprocessingstatus' }]],
+		parameters: { page: 'title', pageid: 'pageId', entity: 'entity', language: 'language', field: 'field' }, responseKey: 'swsprocessingstatus' }]],
 ];
 const out = {
 	version: 1,

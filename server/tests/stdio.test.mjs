@@ -92,7 +92,7 @@ test('keeps API tools closed until wiki approval and blocks them again after rev
 	const approved = (await waitingForDecision).structuredContent;
 	assert.equal(approved.connected, true);
 	assert.equal(approved.approval, 'new');
-	assert.equal(approved.serverVersion, '0.1.0-dev.35');
+	assert.equal(approved.serverVersion, '0.1.1');
 	assert.match(approved.serverInstance, /^[0-9a-f-]{36}$/);
 	assert.equal(waiting.structuredContent.serverInstance, approved.serverInstance);
 	assert.equal((await call('uai-connect')).structuredContent.approval, 'reused');
