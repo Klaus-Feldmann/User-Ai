@@ -1,17 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 
 import { bannerText, draftText, fieldReviewText } from './auftrag.mjs';
+import { prepareChanges } from './order-changes.mjs';
 import { prepare, withOrder } from './template-order.mjs';
 
 export async function wikiAuftrag(args, services) {
-	const { directory, allocate, notify, read, clearReport, review, signal } = services;
+	const { directory, allocate, notify, read, clearReport, review, validateWrite } = services;
 	if (!directory) throw new Error('Der Auftragsspeicher ist nicht eingerichtet.');
 	if (!args.id) {
 		const entwurf = args.entwurf?.trim();
-		if (!entwurf || args.aktion || args.bericht || args.waitSeconds !== undefined)
+		if (!entwurf || args.aktion || args.bericht || args.aenderungen || args.waitSeconds !== undefined)
 			throw new Error('Vollständigen Auftragsentwurf vorlegen.');
 		if (args.feldAenderung && (args.vorlagenauftrag || args.vorlagen || !Object.hasOwn(args.feldAenderung, 'value')))
 			throw new Error('Einzelfeldauftrag mit Feldwert separat von einer Vorlagenanreicherung vorlegen.');
@@ -19,6 +19,7 @@ export async function wikiAuftrag(args, services) {
 		const record = {
 			id: randomUUID(), name: user + ' · Auftrag ' + number, entwurf,
 			vorlagenauftrag: Boolean(args.vorlagenauftrag || args.vorlagen),
+			allgemein: !args.vorlagenauftrag && !args.vorlagen && !args.feldAenderung,
 			status: 'ausstehend',
 			...(args.vorlagen ? { selection: args.vorlagen } : {}),
 			...(args.feldAenderung ? { feldAenderung: args.feldAenderung } : {}),
@@ -33,8 +34,9 @@ export async function wikiAuftrag(args, services) {
 		}
 	}
 	if (args.entwurf !== undefined || args.vorlagenauftrag !== undefined || args.feldAenderung !== undefined ||
-		(args.waitSeconds !== undefined && (args.aktion || args.vorlagen || args.bericht)) ||
-		(args.vorlagen && (args.aktion || args.bericht)) ||
+		(args.waitSeconds !== undefined && (args.aktion || args.vorlagen || args.aenderungen || args.bericht)) ||
+		(args.vorlagen && (args.aenderungen || args.aktion || args.bericht)) ||
+		(args.aenderungen && (args.aktion || args.bericht)) ||
 		(args.bericht && args.aktion !== 'abschliessen')) {
 		throw new Error('Auftragsentscheidung separat abrufen.');
 	}
@@ -44,9 +46,9 @@ export async function wikiAuftrag(args, services) {
 			record.status = status;
 			await save();
 		};
-		const fields = async selection => {
+		const fields = async (selection, allgemein = false) => {
 			try {
-				record.candidates = await prepare(read, selection);
+				record.candidates = allgemein ? await prepareChanges(read, validateWrite, selection) : await prepare(read, selection);
 			} catch (error) {
 				record.status = 'unterbrochen';
 				await save();
@@ -56,16 +58,28 @@ export async function wikiAuftrag(args, services) {
 			await start('fields', 'feldfreigabe-ausstehend');
 		};
 
-		if (record.review && (args.aktion || args.vorlagen))
+		if (record.review && ((args.aktion && args.aktion !== 'anhalten') || args.vorlagen || args.aenderungen))
 			throw new Error('Offene Entscheidung im Wiki treffen und unter derselben ID abrufen.');
-		if (args.vorlagen) {
+		if (args.aenderungen) {
+			if (record.status !== 'freigegeben' || !record.allgemein)
+				throw new Error('Kein offener Auftrag für diese Änderungsliste.');
+			if (record.aenderungsfreigabe?.some(plan => plan.ausfuehrung !== 'ausgefuehrt'))
+				throw new Error('Vorherige Änderungsliste zuerst vollständig abarbeiten.');
+			await fields(args.aenderungen, true);
+		} else if (args.vorlagen) {
 			if (record.status !== 'freigegeben' || !record.vorlagenauftrag || record.targets)
 				throw new Error('Kein offener Vorlagenauftrag für diese Auswahl.');
 			await fields(args.vorlagen);
 		} else if (args.aktion === 'anhalten') {
-			if (record.status !== 'freigegeben') throw new Error('Nur laufende Aufträge können angehalten werden.');
+			if (!['ausstehend', 'freigegeben', 'feldfreigabe-ausstehend', 'unterbrochen'].includes(record.status))
+				throw new Error('Der Auftrag kann in diesem Status nicht angehalten werden.');
+			const approvalIds = [...(record.freigabeIds ?? []), ...(record.review?.approvalUrl ? [record.review.id] : [])];
 			record.status = 'gestoppt';
+			delete record.review;
+			delete record.candidates;
+			delete record.selection;
 			await save();
+			if (review.stop) for (const id of approvalIds) await review.stop(id);
 			await notify(record.name, 'stopped', 'Auftrag angehalten.');
 		} else if (args.aktion === 'abschliessen') {
 			if (record.status !== 'freigegeben' || !args.bericht?.trim() || Buffer.byteLength(args.bericht) > 480)
@@ -90,19 +104,7 @@ export async function wikiAuftrag(args, services) {
 			await save();
 			return reply;
 		};
-		const pending = async () => {
-			if (!record.review.approvalUrl) return publish();
-			const deadline = Date.now() + (args.waitSeconds ?? 0) * 1000;
-			let reply;
-			do {
-				reply = await review.status(record.review.id);
-				if (reply.status !== 'pending' || Date.now() >= deadline) break;
-				await sleep(Math.min(2000, deadline - Date.now()), undefined, { signal });
-			} while (true);
-			return reply;
-		};
-
-		const answer = await pending();
+		const answer = record.review.approvalUrl ? await review.status(record.review.id) : await publish();
 		if (answer.status === 'pending') return record;
 		const phase = record.review.phase;
 		const approved = answer.status === 'approved' && !answer.feedback;
@@ -117,7 +119,16 @@ export async function wikiAuftrag(args, services) {
 		}
 
 		if (answer.feedback) record.korrektur = answer.feedback;
-		if (approved && phase === 'fields') record.targets = record.candidates;
+		if (approved && record.allgemein)
+			(record.freigabeIds ??= []).push(record.review.id);
+		if (approved && phase === 'fields') {
+			if (record.allgemein) {
+				if (record.aenderungsfreigabe)
+					(record.bearbeiteteFreigaben ??= []).push(record.aenderungsfreigabe);
+				record.aenderungsfreigabe = record.candidates;
+			}
+			else record.targets = record.candidates;
+		}
 		const selection = approved && phase === 'draft' ? record.selection : undefined;
 		delete record.candidates;
 		delete record.selection;

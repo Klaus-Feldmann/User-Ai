@@ -106,14 +106,18 @@ final class ConnectionHooks {
 			$message = Html::element( 'span', [], $skin->msg( 'userai-connection-notice', substr( $id, -8 ) )->text() );
 			$notice .= Html::rawElement( 'div', [ 'data-uai-key' => "$owner-$actor-request", 'data-uai-id' => $id ], $message . ' ' . $link );
 		}
-		$review = ConnectionGate::reviews()->pending( $owner, $actor );
+		$reviews = ConnectionGate::reviews();
+		$review = $reviews->pending( $owner, $actor );
+		if ( $review === null && $progress !== null && in_array( $progress->uaip_status, [ 'running', 'approved' ], true ) ) {
+			$review = $reviews->active( $owner, $actor, $progress->uaip_task );
+		}
 		if ( $review !== null ) {
 			$link = Html::element( 'a', [
 				'href' => SpecialPage::getTitleFor( 'UserAIOrderReview', $review->uaior_id )->getLocalURL(),
-			], $skin->msg( 'userai-order-review-link' )->text() );
+			], $skin->msg( $review->uaior_status === 'approved' ? 'userai-order-review-stop' : 'userai-order-review-link' )->text() );
 			$notice .= Html::rawElement( 'div', [
 				'data-uai-key' => "$owner-$actor-review",
-				'data-uai-id' => $review->uaior_id,
+				'data-uai-id' => $review->uaior_id . '-' . $review->uaior_status,
 			], Html::element( 'strong', [], $review->uaior_task ) . ' ' . $link );
 		}
 		$out->addModules( 'ext.userai.notice.dismiss' );

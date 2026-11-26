@@ -4,12 +4,13 @@ import { join } from 'node:path';
 
 import { idPattern, prepare, selectionSchema, withOrder } from './template-order.mjs';
 import { entityFieldChangeSchema, entityFieldReviewText } from './entity-field-order.mjs';
-const templateScope = 'Schema S11 · Kategorie:SWS Entitätsbeschreibung fehlt · Quelle Wikipedia (de). Beschreibung als Anwendungsabsatz ergänzen, Kurzbeschreibung über acht Wörter kürzen und Klassenzuordnung prüfen.';
-export const draftText = record => record.entwurf + (record.vorlagenauftrag ? '\n\n' + templateScope : '') +
+import { changeReviewText, orderChangesSchema } from './order-changes.mjs';
+export const draftText = record => record.entwurf +
 	(record.feldAenderung ? '\n\n' + entityFieldReviewText(record.feldAenderung) : '');
 export const fieldReviewText = (record, targets) => record.entwurf + '\n\n' + targets.map(t =>
-	[t.titel + ' (' + t.id + ', Revision ' + t.revision + ')', t.beschreibung, t.kurzbeschreibung, t.klasse]
-		.filter(Boolean).join('\n')).join('\n\n');
+	t.werkzeug ? changeReviewText(t) :
+		[t.titel + ' (' + t.id + ', Revision ' + t.revision + ')', t.beschreibung, t.kurzbeschreibung, t.klasse]
+			.filter(Boolean).join('\n')).join('\n\n');
 export function bannerText(text) {
 	let result = '';
 	for (const ch of text) {
@@ -21,14 +22,15 @@ export function bannerText(text) {
 export const schema = {
 	type: 'object', additionalProperties: false,
 	properties: {
+		aenderungen: orderChangesSchema,
 		vorlagen: selectionSchema,
 		feldAenderung: entityFieldChangeSchema,
-		vorlagenauftrag: { type: 'boolean', description: 'Für einen S11-Vorlagenauftrag beim ersten Entwurf setzen.' },
+		vorlagenauftrag: { type: 'boolean', description: 'Kompatibilität für bisherige Vorlagenaufrufe. Neue Aufträge verwenden aenderungen.' },
 		aktion: { type: "string", enum: ["anhalten","abschliessen","pruefen"] },
 		bericht: { type: "string", minLength: 1, maxLength: 480 },
 		entwurf: { type: 'string', minLength: 1, maxLength: 6000, description: 'Vollständiger Auftrag einschließlich Umfang, Werkzeugen und Ergebnis.' },
 		id: { type: 'string', pattern: idPattern, description: 'Status eines bestehenden Auftrags abrufen.' },
-		waitSeconds: { type: 'integer', minimum: 0, maximum: 100, description: 'Mit id auf die Entscheidung im Wiki warten. Beim Vorlegen weglassen.' },
+		waitSeconds: { type: 'integer', minimum: 0, maximum: 300, description: 'Mit id auf die Entscheidung im Wiki warten. Beim Vorlegen weglassen.' },
 	},
 };
 

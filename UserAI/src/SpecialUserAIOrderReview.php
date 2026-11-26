@@ -44,7 +44,8 @@ final class SpecialUserAIOrderReview extends UnlistedSpecialPage {
 			$out->addWikiMsg( 'userai-order-review-unavailable' );
 			return;
 		}
-		if ( $row->uaior_status !== 'pending' ) {
+		$canRevoke = $row->uaior_status === 'approved' && $row->uaior_phase !== 'report';
+		if ( $row->uaior_status !== 'pending' && !$canRevoke ) {
 			$out->addWikiMsg( 'userai-order-review-saved' );
 			return;
 		}
@@ -59,17 +60,20 @@ final class SpecialUserAIOrderReview extends UnlistedSpecialPage {
 				$this->showForm( $row, $feedback );
 				return;
 			}
-			if ( !$store->decide( $row, $request->getVal( 'decision' ) ?? '', $feedback ) ) {
+			$decision = $request->getVal( 'decision' ) ?? '';
+			$saved = $canRevoke ? $decision === 'stopped' && $store->stop( $row ) :
+				$store->decide( $row, $decision, $feedback );
+			if ( !$saved ) {
 				$out->addWikiMsg( 'userai-order-review-unavailable' );
 				return;
 			}
 			$out->redirect( $this->getPageTitle( $id )->getLocalURL(), '303' );
 			return;
 		}
-		$this->showForm( $row );
+		$this->showForm( $row, '', $canRevoke );
 	}
 
-	private function showForm( object $row, string $feedback = '' ): void {
+	private function showForm( object $row, string $feedback = '', bool $canRevoke = false ): void {
 		$out = $this->getOutput();
 		$out->addModuleStyles( 'ext.userai.orderReview.styles' );
 		$out->addHTML( Html::element( 'h2', [ 'id' => 'userai-review-heading' ], $row->uaior_task ) );
@@ -80,15 +84,17 @@ final class SpecialUserAIOrderReview extends UnlistedSpecialPage {
 
 		$isReport = $row->uaior_phase === 'report';
 		$fields = Html::hidden( 'token', $this->getUser()->getEditToken( $row->uaior_id ) );
-		if ( !$isReport ) {
+		if ( !$isReport && !$canRevoke ) {
 			$fields .= Html::element( 'label', [ 'for' => 'userai-review-feedback' ],
 				$this->msg( 'userai-order-review-feedback' )->text() );
 			$fields .= Html::element( 'textarea', [
 				'id' => 'userai-review-feedback', 'name' => 'feedback', 'rows' => 2, 'maxlength' => 1000,
 			], $feedback );
 		}
-		$buttons = $this->button( 'stopped', $isReport ? 'later' : 'stop' ) .
-			$this->button( 'approved', $isReport ? 'confirm' : 'approve' );
+		$buttons = $this->button( 'stopped', $isReport ? 'later' : 'stop' );
+		if ( !$canRevoke ) {
+			$buttons .= $this->button( 'approved', $isReport ? 'confirm' : 'approve' );
+		}
 		$fields .= Html::rawElement( 'div', [ 'class' => 'userai-review-actions' ], $buttons );
 		$out->addHTML( Html::rawElement( 'form', [
 			'class' => 'userai-review-form', 'method' => 'post',

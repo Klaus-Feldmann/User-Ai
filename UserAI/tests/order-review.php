@@ -73,6 +73,7 @@ namespace {
 		public function getEditToken( $salt ) { return 'token-' . $salt; }
 		public function matchEditToken( $token, $salt ) { return $token === $this->getEditToken( $salt ); }
 		public function getLocalURL() { return '/review'; }
+		public function stop( $row ) { $row->uaior_status = 'stopped'; return true; }
 		public function decide( $row, $decision, $feedback ) {
 			$this->decisions[] = [ $decision, $feedback ];
 			return true;
@@ -104,5 +105,14 @@ namespace {
 	$fixture->headers['Authorization'] = 'Bearer fixture';
 	$page->execute( 'review-id' );
 	check( $fixture->html === '', 'An OAuth request can read the review page.' );
-	echo "7 order review page checks passed.\n";
+	$fixture = SpecialUserAIOrderReview::$fixture = new ReviewFixture();
+	$fixture->row->uaior_status = 'approved';
+	$page->execute( 'review-id' );
+	check( str_contains( $fixture->html, 'userai-order-review-stop' ) &&
+		!str_contains( $fixture->html, 'userai-order-review-approve' ), 'Approved changes need a stop action.' );
+	$fixture->posted = true;
+	$fixture->form = [ 'token' => 'token-review-id', 'decision' => 'stopped' ];
+	$page->execute( 'review-id' );
+	check( $fixture->row->uaior_status === 'stopped', 'The owner could not stop an approved order.' );
+	echo "9 order review page checks passed.\n";
 }

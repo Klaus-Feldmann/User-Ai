@@ -9,6 +9,8 @@ const catalog = { version: 1, actionModule: 'userai', tools: [
 
 	{ name: 'get-agent-context', inputSchema: schema, annotations: { readOnlyHint: true },
 		calls: [{ transport: 'action', operation: 'context' }] },
+	{ name: 'sws-validate-subject', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true },
+		calls: [{ transport: 'action', operation: 'validate-subject' }] },
 	{ name: 'sws-get-schema', inputSchema: schema, annotations: { readOnlyHint: true },
 		calls: [{ transport: 'action', operation: 'schema' }] },
 	...['sws-get-page-subjects','sws-get-subject'].map(name => ({ name, inputSchema: { type: 'object' }, annotations: { readOnlyHint: true },
@@ -27,7 +29,10 @@ const reviews = new Map();
 process.on('message', ({ phase: next }) => {
 	if (next === 'wiki-reviews') wikiReviews = true;
 	else if (next === 'approve-order') {
-		for (const review of reviews.values()) review.status = 'approved';
+		for (const review of reviews.values()) if (review.status === 'pending') review.status = 'approved';
+	} else if (next === 'stop-order') {
+		const review = [...reviews.values()].at(-1);
+		if (review) review.status = 'stopped';
 	} else phase = next;
 	process.send({ acknowledged: next });
 });
@@ -56,10 +61,11 @@ globalThis.fetch = async (target, options) => {
 			const page = { title: 'Vorlage:Beispiel', pageid: 42, ns: 10, revisions: [{ revid: 45, slots: { main: { content: 'Beispiel' } } }] };
 			if (params.get('generator') === 'categorymembers' || params.get('titles') === page.title)
 				return Response.json({ query: { pages: [page] } });
+			if (operation === 'validate-subject') data = { violations: [] };
 			if (operation === 'sws-get-page-subjects') data = { data: JSON.stringify({ mainSubjectId: 'E1' }) };
-			if (operation === 'sws-get-subject') data = { data: JSON.stringify({ subjects: { E1: { id: 'E1', pageId: 42, schema: { id: 'S11' }, descriptions: {}, fieldKeyVersion: 1, statements: { FQ1: { propertyType: 'select', value: ['dewiki'] }, ...(wikiReviews ? { FK4: { propertyType: 'page', value: ['Kategorie:Testkategorie2'] } } : {}) } } } }) };
+			if (operation === 'sws-get-subject') data = { data: JSON.stringify({ subjects: { E1: { id: 'E1', pageId: 42, pageTitle: 'Vorlage:Beispiel', schema: { id: 'S11' }, descriptions: {}, fieldKeyVersion: 1, statements: { FQ1: { propertyType: 'select', value: ['dewiki'] }, ...(wikiReviews ? { FK4: { propertyType: 'page', value: ['Kategorie:Testkategorie2'] } } : {}) } } } }) };
 			if (url.pathname === '/w/rest.php/uai/v0/subject/E1' && options.method === 'PUT') return Response.json({ status: 'updated' });
-			if (operation === 'schema') data = { schema: { id: 'S11', propertyDefinitions: { FQ1: { options: [{ label: 'Wikipedia (de)', id: 'dewiki' }] }, FK4: { type: 'page', multiple: true } } } };
+			if (operation === 'schema') data = { schema: { id: 'S11', propertyDefinitions: { FQ1: { options: [{ label: 'Wikipedia (de)', id: 'dewiki' }] }, FK3: { type: 'page', labels: { de: 'Hauptkategorie' } }, FK4: { type: 'page', multiple: true } } } };
 			if (params.get('meta') === 'userinfo') {
 				return Response.json({ query: { userinfo: { id: 7, name: 'Sophos' } } });
 			}
@@ -90,8 +96,9 @@ globalThis.fetch = async (target, options) => {
 				};
 				reviews.set(id, data);
 			}
-			if (operation === 'order-review-status' && wikiReviews) {
+			if (['order-review-status', 'order-review-stop'].includes(operation) && wikiReviews) {
 				data = reviews.get(params.get('id')) ?? { status: 'expired' };
+				if (operation === 'order-review-stop' && data.status !== 'expired') data.status = 'stopped';
 			}
 			if (url.pathname === '/w/rest.php/uai/v0/query/sparql') return Response.json({ head: {}, boolean: true });
 	}

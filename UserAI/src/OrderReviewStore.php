@@ -48,7 +48,7 @@ final class OrderReviewStore {
 	}
 
 	public function pending( int $owner, int $actor ): ?object {
-		return $this->db->newSelectQueryBuilder()->select( [ 'uaior_id', 'uaior_task' ] )->from( 'uai_order_review' )
+		return $this->db->newSelectQueryBuilder()->select( [ 'uaior_id', 'uaior_task', 'uaior_status' ] )->from( 'uai_order_review' )
 			->where( [
 				'uaior_owner' => $owner,
 				'uaior_actor' => $actor,
@@ -56,6 +56,32 @@ final class OrderReviewStore {
 				$this->db->expr( 'uaior_expires', '>', time() ),
 			] )->orderBy( [ 'uaior_expires', 'uaior_id' ], 'DESC' )->limit( 1 )
 			->caller( __METHOD__ )->fetchRow() ?: null;
+	}
+
+	public function active( int $owner, int $actor, string $task ): ?object {
+		return $this->db->newSelectQueryBuilder()->select( [ 'uaior_id', 'uaior_task', 'uaior_status' ] )
+			->from( 'uai_order_review' )->where( [
+				'uaior_owner' => $owner,
+				'uaior_actor' => $actor,
+				'uaior_task' => $task,
+				'uaior_status' => 'approved',
+				'uaior_phase' => [ 'draft', 'fields' ],
+				$this->db->expr( 'uaior_expires', '>', time() ),
+			] )->orderBy( [ 'uaior_expires', 'uaior_id' ], 'DESC' )->limit( 1 )
+			->caller( __METHOD__ )->fetchRow() ?: null;
+	}
+
+	public function stop( object $row ): bool {
+		$stoppable = $row->uaior_phase === 'report' ? [ 'pending' ] : [ 'pending', 'approved' ];
+		$this->db->newUpdateQueryBuilder()->update( 'uai_order_review' )
+			->set( [ 'uaior_status' => 'stopped' ] )->where( [
+				'uaior_id' => $row->uaior_id,
+				'uaior_owner' => $row->uaior_owner,
+				'uaior_actor' => $row->uaior_actor,
+				'uaior_status' => $stoppable,
+				$this->db->expr( 'uaior_expires', '>', time() ),
+			] )->caller( __METHOD__ )->execute();
+		return $this->db->affectedRows() === 1;
 	}
 
 	public function decide( object $row, string $decision, string $feedback ): bool {

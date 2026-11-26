@@ -92,7 +92,7 @@ test('keeps API tools closed until wiki approval and blocks them again after rev
 	const approved = (await waitingForDecision).structuredContent;
 	assert.equal(approved.connected, true);
 	assert.equal(approved.approval, 'new');
-	assert.equal(approved.serverVersion, '0.1.0-dev.34');
+	assert.equal(approved.serverVersion, '0.1.0-dev.35');
 	assert.match(approved.serverInstance, /^[0-9a-f-]{36}$/);
 	assert.equal(waiting.structuredContent.serverInstance, approved.serverInstance);
 	assert.equal((await call('uai-connect')).structuredContent.approval, 'reused');
@@ -202,5 +202,40 @@ test('keeps API tools closed until wiki approval and blocks them again after rev
 	assert.ok((await tools()).includes('uai-save-progress'));
 	const progress = { task: 'Vorlagenbereinigung', status: 'paused', summary: 'Eine Vorlage geprüft.' };
 	assert.ok((await call('uai-save-progress', progress)).isError);
+
+	const general = await call('auftrag', { entwurf: 'Auswahl nach diesem Auftrag und Hauptkategorie ergänzen.' });
+	const generalId = general.structuredContent.id;
+	await phase('approve-order');
+	assert.equal((await call('auftrag', { id: generalId })).structuredContent.status, 'freigegeben');
+	const { auftragsId: ignored, ...originalUpdate } = update;
+	const statements = {
+		...originalUpdate.statements,
+		FK3: { propertyType: 'page', value: ['Kategorie:Wikipedia:WikiProjekt Vorlagen'] },
+		FK4: { propertyType: 'page', value: ['Kategorie:Testkategorie2'] },
+	};
+	const edit = { ...originalUpdate, statements };
+	const changes = [
+		{ werkzeug: 'sws-update-subject', argumente: edit },
+		{ werkzeug: 'create-page', argumente: write },
+	];
+	assert.ok((await call('create-page', { ...write, auftragsId: generalId })).isError);
+	const fields = await call('auftrag', { id: generalId, aenderungen: changes });
+	assert.equal(fields.structuredContent?.phase, 'fields', JSON.stringify(fields));
+	assert.ok((await call('sws-update-subject', { ...edit, auftragsId: generalId })).isError);
+	await phase('approve-order');
+	assert.equal((await call('auftrag', { id: generalId })).structuredContent.status, 'freigegeben');
+	assert.ok((await call('create-page', { ...write, source: 'Abweichung', auftragsId: generalId })).isError);
+	assert.equal((await call('sws-update-subject', { ...edit, auftragsId: generalId })).structuredContent.data.status, 'updated');
+	assert.ok((await call('sws-update-subject', { ...edit, auftragsId: generalId })).isError);
+	await phase('stop-order');
+	assert.ok((await call('create-page', { ...write, auftragsId: generalId })).isError);
+	assert.equal((await call('auftrag', { id: generalId })).structuredContent.status, 'gestoppt');
+
+	const pending = await call('auftrag', { entwurf: 'Offene Warteabfrage stoppen' });
+	const pendingId = pending.structuredContent.id;
+	const waitingForOrder = call('auftrag', { id: pendingId, waitSeconds: 180 });
+	await new Promise(resolve => setTimeout(resolve, 100));
+	assert.equal((await call('auftrag', { id: pendingId, aktion: 'anhalten' })).structuredContent.status, 'gestoppt');
+	assert.equal((await waitingForOrder).structuredContent.status, 'gestoppt');
 
 });

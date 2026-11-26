@@ -60,7 +60,7 @@ test('Zehnerauftrag bindet genau die zehn vorgelegten Entitäten', async () => {
 	assert.throws(() => validateReplacement({ targets, status: 'freigegeben' }, { id: 'E11' }, page, subject));
 });
 
-test('Vorlagensuche beginnt erst nach Banner und Freigabe; Quellenfehler pausiert denselben Auftrag', async t => {
+test('Vorlagensuche beginnt erst nach Banner und Freigabe; Fehlende Entität pausiert denselben Auftrag', async t => {
 	const directory = await mkdtemp(join(tmpdir(), 'uai-ablauf-'));
 	t.after(() => rm(directory, { recursive: true, force: true }));
 	const events = [];
@@ -68,13 +68,14 @@ test('Vorlagensuche beginnt erst nach Banner und Freigabe; Quellenfehler pausier
 		directory, allocate: async () => ({ number: 7, user: 'Sophos' }),
 		notify: async (name, status, summary) => events.push([status, name, summary]),
 		ask: async form => {
-			assert.match(form.message, /Wikipedia \(de\)/);
+			assert.match(form.message, /Zwei Vorlagen prüfen/);
+			assert.doesNotMatch(form.message, /Wikipedia|S11|Acht-Wort/);
 			events.push(['dialog']);
 			return { action: 'accept', content: { entscheidung: 'Freigeben' } };
 		},
 		read: async (name, args) => {
 			events.push(['read']);
-			if (name === 'sws-get-subject') return { subjects: { E1: { ...subject, statements: {} } } };
+			if (name === 'sws-get-subject') return { subjects: {} };
 			return read(name, args);
 		},
 	};

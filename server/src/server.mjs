@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from 'node:timers/promises';
+import { approvedChange, checkEntityChange } from './order-changes.mjs';
 import { resolveAppLocale } from './app-locale.mjs';
 import { randomUUID } from 'node:crypto';
 import { idPattern, validateReplacement, withOrder } from './template-order.mjs';
@@ -11,7 +13,7 @@ import { BrowserLoginRequiredError } from './oauth.mjs';
 import { wikiTools, wikiPageWriteTools } from './wiki-tools.mjs';
 import { mcpDefinitions } from './client.mjs';
 
-export const serverInfo = { name: 'uai-mcp-server', version: '0.1.0-dev.34' };
+export const serverInfo = { name: 'uai-mcp-server', version: '0.1.0-dev.35' };
 const serverInstance = randomUUID();
 const runtime = { serverVersion: serverInfo.version, serverInstance };
 const runtimeLabel = 'UAI-Server ' + serverInfo.version + ' · Instanz ' + serverInstance;
@@ -117,6 +119,7 @@ function wikiReviewOperations(client, actionModule) {
 			return reply;
 		},
 		status: id => call('order-review-status', { id }),
+		stop: id => call('order-review-stop', { id }),
 	};
 }
 
@@ -158,7 +161,7 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 	let halted;
 	let order, changingOrder = false, calls = 0;
 	const gate = () => halted || (changingOrder || order?.status !== 'freigegeben'
-		? errorResult('Zuerst Auftrag vorlegen und die Freigabe bestätigen. Für S11 vorlagenauftrag=true setzen.') : null);
+		? errorResult('Zuerst Auftrag vorlegen und die Freigabe bestätigen. Konkrete Änderungen anschließend zur Freigabe vorlegen.') : null);
 	const notify = (task, status, summary, reporttoken) =>
 		writeTools.get(progressToolName).tool.invoke({ task, status, summary, reporttoken });
 	const halt = async result => {
@@ -212,15 +215,11 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 		connected = true;
 	};
 
-	server.registerTool('auftrag', {
-		description: 'Vor jeder Recherche zuerst den vollständigen Entwurf vorlegen. Für eine konkrete Änderung an einem bekannten Entitätsfeld feldAenderung im ersten Auftrag angeben. Für die S11-Vorlagenanreicherung vorlagenauftrag=true setzen und nach der Recherche unter derselben id vorlagen zur Feldfreigabe vorlegen. Wenn ein Wiki-Freigabelink zurückkommt, zeige ihn sofort als Auftrag prüfen und rufe unter derselben id mit waitSeconds:100 die Entscheidung ab. Warte vor der Ausführung auf freigegeben. Zum Abschluss aktion abschliessen mit bericht verwenden. Bei einer offenen Abschlussprüfung kann pruefen den Freigabelink erneut bereitstellen. anhalten sperrt weitere Änderungen.',
-		annotations: { title: 'Auftrag', readOnlyHint: false, destructiveHint: false },
-		inputSchema: fromJsonSchema(auftragSchema),
-	}, async (args, context) => {
+	const processOrderCall = async (args, context) => {
 		if (changingOrder || calls) return errorResult('Auftragsvorgang läuft. Bitte erneut versuchen.');
 		if (args.entwurf && (order?.review || order?.status === 'freigegeben')) return errorResult('Laufenden Auftrag oder offene Freigabe zuerst abschließen.');
 		if (halted && !args.entwurf && !args.id) return halted;
-		if (args.id && (args.vorlagen || args.aktion) && order && order.id !== args.id)
+		if (args.id && (args.vorlagen || args.aenderungen || args.aktion) && order && order.id !== args.id)
 			return errorResult('Diese ID gehört zu einem anderen Auftrag.');
 		changingOrder = true;
 		try {
@@ -231,26 +230,26 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 			const progress = writeTools.get(progressToolName)?.tool;
 			if (!progress) return errorResult('Auftrag benötigt eine aktive UAI-Verbindung mit Banner.');
 			try {
-				if (args.feldAenderung && !progress.review) return errorResult('Einzelfeldaufträge benötigen die Wiki-Auftragsfreigabe.');
+				if ((args.feldAenderung || args.aenderungen) && !progress.review) return errorResult('Feld- und Änderungsfreigaben benötigen die Wiki-Auftragsfreigabe.');
 				const processOrder = progress.review ? wikiAuftrag : auftrag;
 				if (progress.review && args.id && order && order.id !== args.id && (order.review || order.status === 'freigegeben'))
 					return errorResult('Diese ID gehört zu einem anderen Auftrag.');
 				const record = await processOrder(args, {
 					directory: orderDirectory,
 					allocate: progress.allocate,
-					read, clearReport: progress.clearReport,
+					read, validateWrite, clearReport: progress.clearReport,
 					notify: (task, status, summary, reporttoken) => progress.invoke({ task, status, summary, reporttoken }),
 					ask: params => context.mcpReq.elicitInput(params),
 					review: progress.review,
 					signal: context.signal,
 				});
-				if (args.entwurf || !order || args.id === order.id || args.aktion || args.vorlagen) order = record;
+				if (args.entwurf || !order || args.id === order.id || args.aktion || args.vorlagen || args.aenderungen) order = record;
 				if (args.entwurf) halted = undefined;
 				if (record.review?.approvalUrl) {
 					const { id, name, status, review: { approvalUrl, expiresAt, phase } } = record;
 					return { structuredContent: { id, name, status, approvalUrl, expiresAt, phase }, content: [{
 						type: 'text',
-						text: name + ' · [Auftrag prüfen](' + approvalUrl + ')\nDie Entscheidung unter derselben ID mit waitSeconds: 100 abrufen. Auftrags-ID: ' + id,
+						text: name + ' · [Auftrag prüfen](' + approvalUrl + ')\nDie Entscheidung unter derselben ID mit waitSeconds abrufen. Auftrags-ID: ' + id,
 					}] };
 				}
 				return { structuredContent: record, content: [{ type: 'text', text: JSON.stringify(record) }] };
@@ -271,6 +270,22 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 			}
 		} finally {
 			changingOrder = false;
+		}
+	};
+	server.registerTool('auftrag', {
+		description: 'Vollständigen Auftrag mit den jeweiligen Auswahlregeln vorlegen. Nach der Entwurfsfreigabe Recherche ausführen. Konkrete Schreibvorgänge als aenderungen unter derselben ID zur Freigabe vorlegen. Jeder Eintrag enthält werkzeug und argumente ohne auftragsId. Freigabelink sofort anzeigen und die Entscheidung unter derselben ID mit waitSeconds abrufen. Erst nach Freigabe exakt die vorgelegten Schreibvorgänge mit auftragsId ausführen. anhalten stoppt einen offenen Auftrag. Zum Abschluss abschliessen mit bericht verwenden.',
+		annotations: { title: 'Auftrag', readOnlyHint: false, destructiveHint: false },
+		inputSchema: fromJsonSchema(auftragSchema),
+	}, async ({ waitSeconds, ...args }, context) => {
+		if (waitSeconds === undefined) return processOrderCall(args, context);
+		if (!args.id || Object.keys(args).length !== 1)
+			return errorResult('Warteabfrage nur mit Auftrags-ID angeben.');
+		const deadline = Date.now() + waitSeconds * 1000;
+		while (true) {
+			const result = await processOrderCall(args, context);
+			const remaining = deadline - Date.now();
+			if (remaining <= 0 || !result.structuredContent?.approvalUrl) return result;
+			await sleep(Math.min(2000, remaining), undefined, { signal: context.signal });
 		}
 	});
 
@@ -297,6 +312,47 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 		...(allowPageWrites ? wikiPageWriteTools(undefined, undefined, undefined, Boolean(fileDirectory)) : []),
 		...(allowSwsWrites ? swsWriteDefinitions : []),
 	];
+	const validateWrite = async (name, args) => {
+		const active = writeTools.get(name);
+		if (name === progressToolName || !active) throw new Error('Schreibwerkzeug nicht verfügbar: ' + name);
+		if (Object.hasOwn(args, 'auftragsId')) throw new Error('Auftrags-ID gehört nicht in die Werkzeugargumente.');
+		const validated = await active.inputSchema['~standard'].validate(args);
+		if (validated.issues) throw new Error('Ungültige Argumente für Schreibwerkzeug: ' + name);
+		return validated.value;
+	};
+	const checkApprovals = async record => {
+		const review = writeTools.get(progressToolName)?.tool.review;
+		const decisions = await Promise.all((record.freigabeIds ?? []).map(id => review.status(id)));
+		return decisions.every(decision => decision.status === 'approved');
+	};
+	const markStopped = async (record, save) => {
+		record.status = 'gestoppt';
+		await save();
+		order = record;
+		await notify(record.name, 'stopped', 'Freigabe zurückgezogen oder abgelaufen.');
+	};
+	const writeApproved = async (name, args, auftragsId, active) => {
+		if (!auftragsId || order.id !== auftragsId) throw new Error('Passende Auftrags-ID erforderlich.');
+		const result = await withOrder(orderDirectory, auftragsId, async (record, save) => {
+			const plan = approvedChange(record, name, args);
+			if (plan.titel) {
+				const page = await read('get-page', { title: plan.titel });
+				const { subjects } = await read('sws-get-subject', { id: args.id, latest: true });
+				checkEntityChange(plan, page, subjects[args.id]);
+			}
+			if (!await checkApprovals(record)) {
+				await markStopped(record, save);
+				throw new Error('Die Wiki-Freigabe ist nicht mehr gültig.');
+			}
+			plan.ausfuehrung = 'begonnen';
+			await save();
+			const reply = await invokeTool(active.tool, args);
+			plan.ausfuehrung = reply.isError || reply.structuredContent?.taskStopped ? 'pruefen' : 'ausgefuehrt';
+			await save();
+			return reply;
+		});
+		return result.structuredContent?.taskStopped ? halt(result) : result;
+	};
 	const write = async (name, input) => {
 		const blocked = gate();
 		if (blocked) return blocked;
@@ -305,6 +361,10 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 			? halt(stoppedResult(name, 'Das benötigte Schreibwerkzeug ist auf diesem Wiki nicht verfügbar.'))
 			: errorResult('Das Wiki ist noch nicht verbunden. Rufe zuerst uai-connect auf.');
 		const { auftragsId, ...args } = input;
+		if (order.allgemein) {
+			try { return await writeApproved(name, await validateWrite(name, args), auftragsId, active); }
+			catch (error) { return errorResult(error.message); }
+		}
 		if (name !== 'sws-update-subject' && (order.vorlagenauftrag || order.targets || order.feldAenderung || auftragsId))
 			return errorResult('Dieses Schreibwerkzeug liegt außerhalb des Auftrags.');
 		const validated = await active.inputSchema['~standard'].validate(args);
@@ -337,10 +397,11 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 		} catch (error) { return errorResult(error.message); }
 	};
 	for (const { name, description, annotations, inputSchema } of offeredWrites) {
-		const schema = name === 'sws-update-subject' ? {
-			...inputSchema, required: [...inputSchema.required, 'auftragsId'],
+		const schema = {
+			...inputSchema,
+			required: [...(inputSchema.required ?? []), ...(name === 'sws-update-subject' ? ['auftragsId'] : [])],
 			properties: { ...inputSchema.properties, auftragsId: { type: 'string', pattern: idPattern } },
-		} : inputSchema;
+		};
 		server.registerTool(name, { description, annotations, inputSchema: fromJsonSchema(schema) }, async args => { calls++; try { return await write(name, args); } finally { calls--; } });
 	}
 
@@ -412,6 +473,18 @@ export function createSessionServer({ wiki, reconnect, orderDirectory, allowPage
 		}
 		const blocked = gate();
 		if (blocked) return blocked;
+		if (order.allgemein) {
+			try {
+				const current = order;
+				if (!await checkApprovals(current)) {
+					await withOrder(orderDirectory, current.id, async (record, save) => {
+						if (record.status === 'freigegeben') await markStopped(record, save);
+					});
+					return errorResult('Die Wiki-Freigabe ist nicht mehr gültig.');
+				}
+				if (order !== current || gate()) return errorResult('Auftragsstatus hat sich geändert. Erneut abrufen.');
+			} catch (error) { return errorResult(error.message); }
+		}
 		const entry = readTools.get(args.tool);
 		if (!entry) return args.required
 			? halt(stoppedResult(args.tool, 'Das benötigte Werkzeug ist über diesen UAI-Aufruf nicht verfügbar.'))

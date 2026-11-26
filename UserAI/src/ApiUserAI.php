@@ -27,7 +27,7 @@ use AEWI\SWS\SWSExtension;
 final class ApiUserAI extends ApiBase {
 	private const SCHEMA_OPERATIONS = [ 'schemas', 'schema', 'query-entities', 'backend-capabilities' ];
 	public const HANDSHAKE = [ 'connection-identity', 'connection-request', 'connection-claim' ];
-	private const REVIEW_OPERATIONS = [ 'order-review-create', 'order-review-status' ];
+	private const REVIEW_OPERATIONS = [ 'order-review-create', 'order-review-status', 'order-review-stop' ];
 	private const VERSION = 1;
 	private const TOPICS = [ 'overview', 'sws', 'query', 'editing', 'authentication', 'backends' ];
 
@@ -53,6 +53,7 @@ final class ApiUserAI extends ApiBase {
 		switch ( $params['operation'] ) {
 			case 'order-review-create':
 			case 'order-review-status':
+			case 'order-review-stop':
 				$reply = $this->orderReview( $params );
 				break;
 			case 'next-order-number':
@@ -221,6 +222,13 @@ final class ApiUserAI extends ApiBase {
 		}
 		if ( !$row || (int)$row->uaior_owner !== $owner || (int)$row->uaior_actor !== $actor ) {
 			return [ 'version' => self::VERSION, 'status' => 'expired' ];
+		}
+		if ( $params['operation'] === 'order-review-stop' ) {
+			$store->stop( $row );
+			$row = $store->find( $id );
+			if ( !$row ) {
+				return [ 'version' => self::VERSION, 'status' => 'expired' ];
+			}
 		}
 		return [
 			'version' => self::VERSION,
@@ -451,6 +459,6 @@ final class ApiUserAI extends ApiBase {
 	public function isReadMode(): bool { return true; }
 
 	public function isWriteMode(): bool {
-		return in_array( $this->getRequest()->getVal( 'operation' ), [ 'next-order-number', 'clear-reviewed-report', 'save-progress', 'order-review-create' ], true );
+		return in_array( $this->getRequest()->getVal( 'operation' ), [ 'next-order-number', 'clear-reviewed-report', 'save-progress', 'order-review-create', 'order-review-stop' ], true );
 	}
 }

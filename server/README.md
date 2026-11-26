@@ -1,4 +1,4 @@
-# UAI MCP Server 0.1.0-dev.34
+# UAI MCP Server 0.1.0-dev.35
 
 Eigenständiger MCP-Server über stdio für User AI ab 0.1.0-beta.4.
 Softwaredesign Klaus Feldmann / AufEinWort, Programmierung ChatGPT / Sophos.
@@ -20,7 +20,15 @@ von Model Context Protocol (Apache-2.0). Das Paket ist GPL-2.0-or-later.
 | `UAI_CLIENT_SECRET` | Geheimnis des vertraulichen OAuth-Clients |
 | `UAI_EXPECTED_ACTOR_ID` | Benutzer-ID des Assistentenkontos |
 
-Der Server benötigt UAI Beta.4 mit dem serverseitigen Freigabeverfahren.
+Für den aktuellen Auftragsablauf die MediaWiki-Erweiterung UserAI
+0.1.0-beta.4.19 verwenden.
+
+Mit `auftrag` einen Entwurf mit den Auswahlregeln vorlegen. Nach dessen
+Freigabe recherchieren und unter derselben ID die konkreten Schreibvorgänge
+als `aenderungen` mit `werkzeug` und `argumente` vorlegen. Nach der
+Feldfreigabe die vorgelegten Argumente mit der `auftragsId` ausführen.
+Die Warteabfrage für Aufträge unterstützt bis zu 300 Sekunden. Bei einem
+Stopp kann ein bereits ausgelöster Wiki-Aufruf noch zu Ende laufen.
 Nach einem expliziten Browser-Login als Assistent stehen beim App-Start
 zunächst `uai-connect` und `uai-call` bereit. Im Chat sind „Verbinde dich UAI“
 und „Connect UAI“ Beispiele für dieselbe Aufforderung. Die Werkzeugbeschreibung
